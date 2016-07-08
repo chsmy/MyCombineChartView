@@ -91,9 +91,9 @@ public class CombineChart extends View {
     /**
      * 线的路径
      */
-    Path linePathW = new Path();//风
-    Path linePathH = new Path();//湿度
-    Path linePathT = new Path();//温度
+    Path linePathW;//风
+    Path linePathH;//湿度
+    Path linePathT;//温度
     /**
      * 右边的Y轴分成3份  每一分的高度
      */
@@ -159,19 +159,25 @@ public class CombineChart extends View {
         barRect = new Rect(0, 0, 0, 0);
         barRect1 = new Rect(0, 0, 0, 0);
         barRect2 = new Rect(0, 0, 0, 0);
+
+        linePathW = new Path();
+        linePathH = new Path();
+        linePathT = new Path();
     }
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        super.onSizeChanged(w, h, oldw, oldh);
         screenWidth = getMeasuredWidth();
         screenHeight = getMeasuredHeight();
         //得到每个bar的宽度
-        getItemsWidth(screenWidth, mBarData.size());
-        //设置矩形的顶部 底部 右边Y轴的3部分每部分的高度
-        getStatusHeight();
-        leftWhiteRect = new Rect(0, 0, 0, screenHeight);
-        rightWhiteRect = new Rect(screenWidth - leftMargin * 2 - 10, 0, screenWidth, screenHeight);
+        if(mBarData!=null) {
+            getItemsWidth(screenWidth, mBarData.size());
+            //设置矩形的顶部 底部 右边Y轴的3部分每部分的高度
+            getStatusHeight();
+            leftWhiteRect = new Rect(0, 0, 0, screenHeight);
+            rightWhiteRect = new Rect(screenWidth - leftMargin * 2 - 10, 0, screenWidth, screenHeight);
+        }
+        super.onSizeChanged(w, h, oldw, oldh);
     }
 
     @Override
@@ -186,6 +192,7 @@ public class CombineChart extends View {
         leftPoints.clear();
         rightPoints.clear();
         canvas.drawColor(BG_COLOR);
+        if(winds==null||mBarData==null||humidity==null||temperature==null) return;
         //重置3条线
         linePathW.reset();
         linePathW.incReserve(winds.size());
@@ -195,6 +202,7 @@ public class CombineChart extends View {
         linePathT.incReserve(winds.size());
         checkTheLeftMoving();
         textPaint.setTextSize(ScreenUtils.dp2px(getContext(), 10));
+
         for (int i = 0; i < mBarData.size(); i++) {
             //画bar的矩形
             barRect.left = (int) (xStartIndex + barWidth * i + barSpace * (i + 1) - leftMoving);
