@@ -2,29 +2,38 @@ package com.chs.mycombinechartview;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+    CombineChart combineChart;
+    String[] rightYLabels;
+    String[] rightYLabels1;
+    boolean change = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        CombineChart combineChart = (CombineChart) findViewById(R.id.cb_chart);
+        combineChart = (CombineChart) findViewById(R.id.cb_chart);
+        rightYLabels = new String[]{"0级", "5级", "10级", "%0rh", "50%rh", "100%rh", "-50" + getString(R.string.degree_centigrade),
+                "0" + getString(R.string.degree_centigrade), "50" + getString(R.string.degree_centigrade)};
+        rightYLabels1 = new String[]{"%0rh", "50%rh", "100%rh", "-50" + getString(R.string.degree_centigrade),
+                "0" + getString(R.string.degree_centigrade), "50" + getString(R.string.degree_centigrade)};
         List<BarChartBean> data = new ArrayList<>();
-        data.add(new BarChartBean("7/1",1003,500,600));
-        data.add(new BarChartBean("7/2",890,456,123));
-        data.add(new BarChartBean("7/3",456,741,654));
-        data.add(new BarChartBean("7/4",258,951,12));
-        data.add(new BarChartBean("7/5",863,45,99));
-        data.add(new BarChartBean("7/6",357,235,456));
-        data.add(new BarChartBean("7/7",452,321,55));
-        data.add(new BarChartBean("7/8",654,555,666));
-        data.add(new BarChartBean("7/9",321,333,222));
-        data.add(new BarChartBean("7/10",846,111,444));
+        data.add(new BarChartBean("7/1", 1003, 500, 600));
+        data.add(new BarChartBean("7/2", 890, 456, 123));
+        data.add(new BarChartBean("7/3", 456, 741, 654));
+        data.add(new BarChartBean("7/4", 258, 951, 12));
+        data.add(new BarChartBean("7/5", 863, 45, 99));
+        data.add(new BarChartBean("7/6", 357, 235, 456));
+        data.add(new BarChartBean("7/7", 452, 321, 55));
+        data.add(new BarChartBean("7/8", 654, 555, 666));
+        data.add(new BarChartBean("7/9", 321, 333, 222));
+        data.add(new BarChartBean("7/10", 846, 111, 444));
         List<Float> winds = new ArrayList<>();
         winds.add(5f);
         winds.add(6f);
@@ -59,12 +68,29 @@ public class MainActivity extends AppCompatActivity {
         tem.add(10f);
         tem.add(18f);
 
-        combineChart.setItems(data,winds,hum,tem);
+        combineChart.setLeftYAxisLabels("kwh");
+        combineChart.setItems(data, winds, hum, tem, rightYLabels);
         combineChart.setOnItemBarClickListener(new CombineChart.OnItemBarClickListener() {
             @Override
             public void onClick(int position) {
-                Toast.makeText(MainActivity.this,"点击了："+position,Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, "点击了：" + position, Toast.LENGTH_SHORT).show();
             }
         });
+        findViewById(R.id.btn_change).setOnClickListener(this);
+    }
+
+    @Override
+    public void onClick(View view) {
+        switch (view.getId()) {
+            case R.id.btn_change:
+                if(change){
+                    combineChart.setRightYLabels(rightYLabels1);
+                    change = !change;
+                }else {
+                    combineChart.setRightYLabels(rightYLabels);
+                    change = !change;
+                }
+                break;
+        }
     }
 }

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">MyCombineChartView</string>
+    <string name="degree_centigrade">&#176;C</string>
 </resources>

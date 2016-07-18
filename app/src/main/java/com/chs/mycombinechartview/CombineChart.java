@@ -28,8 +28,9 @@ public class CombineChart extends View {
     private List<Float> winds;//风力的集合
     private List<Float> humidity;//湿度的集合
     private List<Float> temperature;//温度的集合
+    //柱形图的颜色集合
     private int colors[] = new int[]{Color.parseColor("#6FC5F4"), Color.parseColor("#78DA9F"), Color.parseColor("#FCAE84")};
-    private static final String[] rightYLabels = new String[]{"0级", "5级", "10级", "%0rh", "50%rh", "100%rh", "-50。", "0。", "50。"};
+    private String[] rightYLabels;
     /**
      * item中的最大值
      */
@@ -68,10 +69,6 @@ public class CombineChart extends View {
      */
     private static final int BG_COLOR = Color.parseColor("#EEEEEE");
     /**
-     * 状态栏的高度是否已经获取过
-     */
-    private boolean statusHeightHasGet;
-    /**
      * 向右边滑动的距离
      */
     private float leftMoving;
@@ -94,15 +91,28 @@ public class CombineChart extends View {
     Path linePathW;//风
     Path linePathH;//湿度
     Path linePathT;//温度
+
+    //风点的颜色
+    private static final int WIND_COLOR = Color.parseColor("#EF6868");
+    //湿度线点的颜色
+    private static final int HUM_COLOR = Color.parseColor("#549FF4");
+    //温度点的颜色
+    private static final int TEM_COLOR = Color.parseColor("#FFD400");
     /**
      * 右边的Y轴分成3份  每一分的高度
      */
-    private float lineMaxHeight;
-
+    private float lineEachHeight;
+    /**
+     * 右边的Y轴分成2份  每一分的高度
+     */
+    private float lineEachHeightT;
+    //左边Y轴的单位
+    private String leftAxisUnit = "";
     private OnItemBarClickListener mOnItemBarClickListener;
     private GestureDetector mGestureListener;
-    public interface OnItemBarClickListener{
-       void onClick(int position);
+
+    public interface OnItemBarClickListener {
+        void onClick(int position);
     }
 
     /**
@@ -110,6 +120,7 @@ public class CombineChart extends View {
      */
     private List<Integer> leftPoints = new ArrayList<>();
     private List<Integer> rightPoints = new ArrayList<>();
+
     public void setOnItemBarClickListener(OnItemBarClickListener onRangeBarClickListener) {
         this.mOnItemBarClickListener = onRangeBarClickListener;
     }
@@ -131,7 +142,7 @@ public class CombineChart extends View {
 
     private void init(Context context) {
         setWillNotDraw(false);
-        mGestureListener = new GestureDetector(context,new RangeBarOnGestureListener());
+        mGestureListener = new GestureDetector(context, new RangeBarOnGestureListener());
 
         leftMargin = ScreenUtils.dp2px(context, 16);
         topMargin = ScreenUtils.dp2px(context, 20);
@@ -170,7 +181,7 @@ public class CombineChart extends View {
         screenWidth = getMeasuredWidth();
         screenHeight = getMeasuredHeight();
         //得到每个bar的宽度
-        if(mBarData!=null) {
+        if (mBarData != null) {
             getItemsWidth(screenWidth, mBarData.size());
             //设置矩形的顶部 底部 右边Y轴的3部分每部分的高度
             getStatusHeight();
@@ -193,7 +204,7 @@ public class CombineChart extends View {
         leftPoints.clear();
         rightPoints.clear();
         canvas.drawColor(BG_COLOR);
-        if(winds==null||mBarData==null||humidity==null||temperature==null) return;
+        if (winds == null || mBarData == null || humidity == null || temperature == null) return;
         //重置3条线
         linePathW.reset();
         linePathW.incReserve(winds.size());
@@ -203,39 +214,8 @@ public class CombineChart extends View {
         linePathT.incReserve(winds.size());
         checkTheLeftMoving();
         textPaint.setTextSize(ScreenUtils.dp2px(getContext(), 10));
-
-        for (int i = 0; i < mBarData.size(); i++) {
-            //画bar的矩形
-            barRect.left = (int) (xStartIndex + barWidth * i + barSpace * (i + 1) - leftMoving);
-            barRect.top = (int) maxHeight + topMargin * 2 - (int) (maxHeight * (mBarData.get(i).getyNum() / maxValueInItems));
-            barRect.right = barRect.left + barWidth;
-            leftPoints.add(barRect.left);
-            rightPoints.add(barRect.right);
-            barPaint.setColor(colors[0]);
-            canvas.drawRect(barRect, barPaint);
-
-            barRect1.top = (int) maxHeight + topMargin * 2 - (int) (maxHeight * (mBarData.get(i).getyNum() / maxValueInItems))
-                    - (int) (maxHeight * (mBarData.get(i).getyNum1() / maxValueInItems));
-            barRect1.left = (int) (xStartIndex + barWidth * i + barSpace * (i + 1) - leftMoving);
-            barRect1.right = barRect.left + barWidth;
-            barRect1.bottom = barRect.top;
-            barPaint.setColor(colors[1]);
-            canvas.drawRect(barRect1, barPaint);
-
-            barRect2.top = (int) maxHeight + topMargin * 2 - (int) (maxHeight * (mBarData.get(i).getyNum() / maxValueInItems))
-                    - (int) (maxHeight * (mBarData.get(i).getyNum1() / maxValueInItems)) - (int) (maxHeight * (mBarData.get(i).getyNum2() / maxValueInItems));
-            barRect2.left = (int) (xStartIndex + barWidth * i + barSpace * (i + 1) - leftMoving);
-            barRect2.right = barRect.left + barWidth;
-            barRect2.bottom = barRect1.top;
-            barPaint.setColor(colors[2]);
-            canvas.drawRect(barRect2, barPaint);
-            //画x轴的text
-            String text = mBarData.get(i).getxLabel();
-            canvas.drawText(text, barRect.left - (textPaint.measureText(text) - barWidth) / 2, barRect.bottom + ScreenUtils.dp2px(getContext(), 10), textPaint);
-
-            //确定线形图的路径 和 画圆点
-            drawLines(canvas, i);
-        }
+        //画矩形
+        drawBars(canvas);
         canvas.save();
         //画线型图
         canvas.drawPath(linePathW, linePaint);
@@ -269,50 +249,129 @@ public class CombineChart extends View {
             }
             canvas.drawLine(xStartIndex, startY, xStartIndex + 10, startY, axisPaint);
             String text = String.valueOf(maxDivisionValue * 0.1f * i);
-            canvas.drawText(text, xStartIndex - textPaint.measureText(text) - 5, startY + textPaint.measureText("0") / 2, textPaint);
+            canvas.drawText(text, xStartIndex - textPaint.measureText(text) - 5, startY + textPaint.measureText("0"), textPaint);
         }
 
-        //画右边的Y轴和右边Y轴text
+        //左边Y轴的单位
+        canvas.drawText(leftAxisUnit, xStartIndex - textPaint.measureText(leftAxisUnit) - 5, topMargin/2, textPaint);
+
+        //画右边的Y轴
         canvas.drawLine(screenWidth - leftMargin * 2 - 10, yStartIndex, screenWidth - leftMargin * 2 - 10, topMargin / 2, axisPaint);
-        float eachHeight = ((barRect.bottom - topMargin / 2) / 6);
-        for (int j = 0; j < 7; j++) {
-            float startY = barRect.bottom - eachHeight * j;
+        //画右边Y轴text
+        drawRightYText(canvas);
+
+    }
+
+    private void drawBars(Canvas canvas) {
+        for (int i = 0; i < mBarData.size(); i++) {
+            barRect.left = (int) (xStartIndex + barWidth * i + barSpace * (i + 1) - leftMoving);
+            barRect.top = (int) maxHeight + topMargin * 2 - (int) (maxHeight * (mBarData.get(i).getyNum() / maxValueInItems));
+            barRect.right = barRect.left + barWidth;
+            leftPoints.add(barRect.left);
+            rightPoints.add(barRect.right);
+            barPaint.setColor(colors[0]);
+            canvas.drawRect(barRect, barPaint);
+
+            barRect1.top = (int) maxHeight + topMargin * 2 - (int) (maxHeight * (mBarData.get(i).getyNum() / maxValueInItems))
+                    - (int) (maxHeight * (mBarData.get(i).getyNum1() / maxValueInItems));
+            barRect1.left = (int) (xStartIndex + barWidth * i + barSpace * (i + 1) - leftMoving);
+            barRect1.right = barRect.left + barWidth;
+            barRect1.bottom = barRect.top;
+            barPaint.setColor(colors[1]);
+            canvas.drawRect(barRect1, barPaint);
+
+            barRect2.top = (int) maxHeight + topMargin * 2 - (int) (maxHeight * (mBarData.get(i).getyNum() / maxValueInItems))
+                    - (int) (maxHeight * (mBarData.get(i).getyNum1() / maxValueInItems)) - (int) (maxHeight * (mBarData.get(i).getyNum2() / maxValueInItems));
+            barRect2.left = (int) (xStartIndex + barWidth * i + barSpace * (i + 1) - leftMoving);
+            barRect2.right = barRect.left + barWidth;
+            barRect2.bottom = barRect1.top;
+            barPaint.setColor(colors[2]);
+            canvas.drawRect(barRect2, barPaint);
+            //画x轴的text
+            String text = mBarData.get(i).getxLabel();
+            canvas.drawText(text, barRect.left - (textPaint.measureText(text) - barWidth) / 2, barRect.bottom + ScreenUtils.dp2px(getContext(), 10), textPaint);
+
+            //确定线形图的路径 和 画圆点
+            drawLines(i);
+        }
+    }
+
+    /**
+     * 画右边的Y轴的text
+     *
+     * @param canvas
+     */
+    private void drawRightYText(Canvas canvas) {
+        if (rightYLabels.length == 9) {
+            float eachHeight = ((barRect.bottom - topMargin / 2) / 6f);
+            for (int j = 0; j < 7; j++) {
+                float startY = barRect.bottom - eachHeight * j;
 //            if (startY < topMargin / 2) {
 //                break;
 //            }
-            canvas.drawLine(screenWidth - leftMargin * 2 - 10, startY, screenWidth - leftMargin * 2 - 20, startY, axisPaint);
-            String text = rightYLabels[j];
-            if (j < 2) {
-                textPaint.setColor(Color.parseColor("#EE6867"));
-                canvas.drawText(text, screenWidth - leftMargin * 2 - 5, startY, textPaint);
-            } else {
-                switch (j) {
-                    case 2:
-                        canvas.drawText(text, screenWidth - leftMargin * 2 - 5, startY + textPaint.measureText("级"), textPaint);
-                        String text2 = rightYLabels[j + 1];
-                        textPaint.setColor(Color.parseColor("#549EF3"));
-                        canvas.drawText(text2, screenWidth - leftMargin * 2 - 5, startY, textPaint);
-                        break;
-                    case 3:
-                        String text3 = rightYLabels[j + 1];
-                        canvas.drawText(text3, screenWidth - leftMargin * 2 - 5, startY, textPaint);
-                        break;
-                    case 4:
-                        String text4 = rightYLabels[j + 1];
-                        canvas.drawText(text4, screenWidth - leftMargin * 2 - 5, startY + textPaint.measureText("级"), textPaint);
-                        String text41 = rightYLabels[j + 2];
-                        textPaint.setColor(Color.parseColor("#FFD401"));
-                        canvas.drawText(text41, screenWidth - leftMargin * 2 - 5, startY, textPaint);
-                        break;
-                    case 5:
-                        String text5 = rightYLabels[j + 2];
-                        canvas.drawText(text5, screenWidth - leftMargin * 2 - 5, startY, textPaint);
-                        break;
-                    case 6:
-                        String text6 = rightYLabels[j + 2];
-                        canvas.drawText(text6, screenWidth - leftMargin * 2 - 5, startY + textPaint.measureText("级"), textPaint);
-                        textPaint.setColor(Color.BLACK);
-                        break;
+                canvas.drawLine(screenWidth - leftMargin * 2 - 10, startY, screenWidth - leftMargin * 2 - 20, startY, axisPaint);
+                String text = rightYLabels[j];
+                if (j < 2) {
+                    textPaint.setColor(WIND_COLOR);
+                    canvas.drawText(text, screenWidth - leftMargin * 2 - 5, startY, textPaint);
+                } else {
+                    switch (j) {
+                        case 2:
+                            canvas.drawText(text, screenWidth - leftMargin * 2 - 5, startY + textPaint.measureText("级"), textPaint);
+                            String text2 = rightYLabels[j + 1];
+                            textPaint.setColor(HUM_COLOR);
+                            canvas.drawText(text2, screenWidth - leftMargin * 2 - 5, startY, textPaint);
+                            break;
+                        case 3:
+                            String text3 = rightYLabels[j + 1];
+                            canvas.drawText(text3, screenWidth - leftMargin * 2 - 5, startY, textPaint);
+                            break;
+                        case 4:
+                            String text4 = rightYLabels[j + 1];
+                            canvas.drawText(text4, screenWidth - leftMargin * 2 - 5, startY + textPaint.measureText("级"), textPaint);
+                            String text41 = rightYLabels[j + 2];
+                            textPaint.setColor(TEM_COLOR);
+                            canvas.drawText(text41, screenWidth - leftMargin * 2 - 5, startY, textPaint);
+                            break;
+                        case 5:
+                            String text5 = rightYLabels[j + 2];
+                            canvas.drawText(text5, screenWidth - leftMargin * 2 - 5, startY, textPaint);
+                            break;
+                        case 6:
+                            String text6 = rightYLabels[j + 2];
+                            canvas.drawText(text6, screenWidth - leftMargin * 2 - 5, startY + textPaint.measureText("级"), textPaint);
+                            textPaint.setColor(Color.BLACK);
+                            break;
+                    }
+                }
+            }
+        } else {
+            float eachHeight = ((barRect.bottom - topMargin / 2) / 4f);
+            for (int k = 0; k < 5; k++) {
+                float startY = barRect.bottom - eachHeight * k;
+                canvas.drawLine(screenWidth - leftMargin * 2 - 10, startY, screenWidth - leftMargin * 2 - 20, startY, axisPaint);
+                String text = rightYLabels[k];
+                if (k < 2) {
+                    textPaint.setColor(HUM_COLOR);
+                    canvas.drawText(text, screenWidth - leftMargin * 2 - 5, startY, textPaint);
+                } else {
+                    switch (k) {
+                        case 2:
+                            canvas.drawText(text, screenWidth - leftMargin * 2 - 5, startY + textPaint.measureText("级"), textPaint);
+                            String text2 = rightYLabels[k + 1];
+                            textPaint.setColor(TEM_COLOR);
+                            canvas.drawText(text2, screenWidth - leftMargin * 2 - 5, startY, textPaint);
+                            break;
+                        case 3:
+                            String text3 = rightYLabels[k + 1];
+                            canvas.drawText(text3, screenWidth - leftMargin * 2 - 5, startY, textPaint);
+                            break;
+                        case 4:
+                            String text4 = rightYLabels[k + 1];
+                            canvas.drawText(text4, screenWidth - leftMargin * 2 - 5, startY + textPaint.measureText("级"), textPaint);
+                            textPaint.setColor(Color.BLACK);
+                            break;
+                    }
                 }
             }
         }
@@ -322,45 +381,69 @@ public class CombineChart extends View {
      * 画线上的点
      */
     private void drawCircles(Canvas canvas) {
-        for(int i = 0;i<mBarData.size();i++){
-            float lineHeight = winds.get(i) * lineMaxHeight / 10;
-            pointPaint.setColor(Color.parseColor("#549EF3"));
-            canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight, 10, pointPaint);
-            float lineHeight2 = humidity.get(i) * lineMaxHeight / 100;
-            pointPaint.setColor(Color.parseColor("#FFD401"));
-            canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight2 - lineMaxHeight, 10, pointPaint);
-            float lineHeight3 = (temperature.get(i)+50) * lineMaxHeight / 100;
-            pointPaint.setColor(Color.parseColor("#549EF3"));
-            canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight3 - lineMaxHeight*2, 10, pointPaint);
+        for (int i = 0; i < mBarData.size(); i++) {
+            if (rightYLabels.length == 9) {
+                float lineHeight = winds.get(i) * lineEachHeight / 10;
+                pointPaint.setColor(WIND_COLOR);
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight, 10, pointPaint);
+                float lineHeight2 = humidity.get(i) * lineEachHeight / 100;
+                pointPaint.setColor(HUM_COLOR);
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight2 - lineEachHeight, 10, pointPaint);
+                float lineHeight3 = (temperature.get(i) + 50) * lineEachHeight / 100;
+                pointPaint.setColor(TEM_COLOR);
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeight * 2, 10, pointPaint);
+            } else {
+                float lineHeight = humidity.get(i) * lineEachHeightT / 100;
+                pointPaint.setColor(HUM_COLOR);
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight, 10, pointPaint);
+                float lineHeight1 = (temperature.get(i) + 50) * lineEachHeightT / 100;
+                pointPaint.setColor(TEM_COLOR);
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight1 - lineEachHeightT, 10, pointPaint);
+            }
         }
     }
 
     /**
      * 画线形图
      *
-     * @param canvas
      * @param i
      */
-    private void drawLines(Canvas canvas, int i) {
-        float lineHeight = winds.get(i) * lineMaxHeight / 10;
-        if (i == 0) {
-            linePathW.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight);
-        } else {
-            linePathW.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight);
-        }
+    private void drawLines(int i) {
+        if (rightYLabels.length == 9) {
+            float lineHeight = winds.get(i) * lineEachHeight / 10;
+            if (i == 0) {
+                linePathW.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight);
+            } else {
+                linePathW.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight);
+            }
 
-        float lineHeight2 = humidity.get(i) * lineMaxHeight / 100;
-        if (i == 0) {
-            linePathH.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2 - lineMaxHeight);
-        } else {
-            linePathH.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2 - lineMaxHeight);
-        }
+            float lineHeight2 = humidity.get(i) * lineEachHeight / 100;
+            if (i == 0) {
+                linePathH.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2 - lineEachHeight);
+            } else {
+                linePathH.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2 - lineEachHeight);
+            }
 
-        float lineHeight3 = (temperature.get(i)+50) * lineMaxHeight / 100;
-        if (i == 0) {
-            linePathT.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight3 - lineMaxHeight*2);
+            float lineHeight3 = (temperature.get(i) + 50) * lineEachHeight / 100;
+            if (i == 0) {
+                linePathT.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeight * 2);
+            } else {
+                linePathT.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeight * 2);
+            }
         } else {
-            linePathT.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight3 - lineMaxHeight*2);
+            float lineHeight2 = humidity.get(i) * lineEachHeightT / 100;
+            if (i == 0) {
+                linePathH.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2);
+            } else {
+                linePathH.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2);
+            }
+
+            float lineHeight3 = (temperature.get(i) + 50) * lineEachHeightT / 100;
+            if (i == 0) {
+                linePathT.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeightT);
+            } else {
+                linePathT.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeightT);
+            }
         }
     }
 
@@ -383,7 +466,7 @@ public class CombineChart extends View {
             default:
                 return super.onTouchEvent(event);
         }
-        if(mGestureListener!=null){
+        if (mGestureListener != null) {
             mGestureListener.onTouchEvent(event);
         }
         return true;
@@ -407,11 +490,18 @@ public class CombineChart extends View {
      */
     private void getStatusHeight() {
         barRect.top = topMargin * 2;
-        barRect.bottom = screenHeight - topMargin/2;
+        barRect.bottom = screenHeight - topMargin / 2;
         maxHeight = barRect.bottom - barRect.top;
-        lineMaxHeight = (barRect.bottom - topMargin / 2) / 3;
+        lineEachHeight = (barRect.bottom - topMargin / 2) / 3;
+        lineEachHeightT = (barRect.bottom - topMargin / 2) / 2;
+
 
         yStartIndex = barRect.bottom;
+    }
+
+    public void setRightYLabels(String[] rightYLabels) {
+        this.rightYLabels = rightYLabels;
+        invalidate();
     }
 
     /**
@@ -422,7 +512,7 @@ public class CombineChart extends View {
      * @param humidity    湿度线形图的值
      * @param temperature 温度线形图的值
      */
-    public void setItems(List<BarChartBean> items, List<Float> winds, List<Float> humidity, List<Float> temperature) {
+    public void setItems(List<BarChartBean> items, List<Float> winds, List<Float> humidity, List<Float> temperature, String[] rightYLabels) {
         if (items == null || winds == null) {
             throw new RuntimeException("BarChartView.setItems(): the param items cannot be null.");
         }
@@ -430,6 +520,7 @@ public class CombineChart extends View {
             return;
         }
         this.mBarData = items;
+        this.rightYLabels = rightYLabels;
         this.winds = winds;
         this.humidity = humidity;
         this.temperature = temperature;
@@ -441,6 +532,7 @@ public class CombineChart extends View {
                 maxValueInItems = totalNum;
             }
         }
+        changeRightYLabels();
         //获取分度值
         getRange(maxValueInItems, 0);
 
@@ -448,7 +540,73 @@ public class CombineChart extends View {
     }
 
     /**
+     * 计算右边Y轴的刻度标签的值
+     */
+    private void changeRightYLabels() {
+        float HMaxValue = humidity.get(0);
+        float HMinValue = humidity.get(0);
+        for (Float hum : humidity) {
+            if (hum > HMaxValue) {
+                HMaxValue = hum;
+            }
+            if (hum < HMinValue) {
+                HMinValue = hum;
+            }
+        }
+        float TMaxValue = temperature.get(0);
+        float TMinValue = temperature.get(0);
+        for (Float tem : temperature) {
+            if (tem > TMaxValue) {
+                TMaxValue = tem;
+            }
+            if (tem < TMinValue) {
+                TMinValue = tem;
+            }
+        }
+        int hMaxScale = getScale(HMaxValue);
+        float unHMaxScaleValue = (float) (HMaxValue / Math.pow(10, hMaxScale));
+        int hMinScale = getScale(HMinValue);
+        float unHMinScaleValue = (float) (HMinValue / Math.pow(10, hMinScale));
+        int hMax = (int) (getRangeTop(unHMaxScaleValue) * Math.pow(10, hMaxScale));
+        int hMin = (int) (getRangeMin(unHMinScaleValue) * Math.pow(10, hMinScale));
+
+        int tMaxScale = getScale(Math.abs(TMaxValue));
+        float unTMaxScaleValue = (float) (TMaxValue / Math.pow(10, tMaxScale));
+        int tMinScale = getScale(Math.abs(TMinValue));
+        float unTMinScaleValue = (float) (TMinValue / Math.pow(10, tMinScale));
+        int tMax = (int) (getRangeTop(Math.abs(unTMaxScaleValue)) * Math.pow(10, tMaxScale));
+        int tMin = (int) (getRangeMin(Math.abs(unTMinScaleValue)) * Math.pow(10, tMinScale));
+        tMax = TMaxValue < 0 ? -tMax : tMax;
+        tMin = TMinValue < 0 ? -tMin : tMin;
+        if (rightYLabels.length == 9) {
+            rightYLabels[3] = hMin + "%rh";
+            rightYLabels[4] = hMin + (hMax - hMin) / 2 + "%rh";
+            rightYLabels[5] = hMax + "%rh";
+            rightYLabels[6] = tMax + getResources().getString(R.string.degree_centigrade);
+            rightYLabels[7] = tMin + (tMax - tMin) / 2 + getResources().getString(R.string.degree_centigrade);
+            rightYLabels[8] = tMin + getResources().getString(R.string.degree_centigrade);
+        } else {
+            rightYLabels[0] = hMin + "%rh";
+            rightYLabels[1] = hMin + (hMax - hMin) / 2 + "%rh";
+            rightYLabels[2] = hMax + "%rh";
+            rightYLabels[3] = tMax + getResources().getString(R.string.degree_centigrade);
+            rightYLabels[4] = tMin + (tMax - tMin) / 2 + getResources().getString(R.string.degree_centigrade);
+            rightYLabels[5] = tMin + getResources().getString(R.string.degree_centigrade);
+        }
+    }
+
+    /**
+     * 设置左边的Y轴的单位
+     *
+     * @param labels
+     */
+    public void setLeftYAxisLabels(String labels) {
+        this.leftAxisUnit = labels;
+    }
+
+    /**
      * 设定每个bar的宽度 和向右边滑动的时候右边的最大距离
+     *
      * @param screenWidth
      * @param size
      */
@@ -462,12 +620,12 @@ public class CombineChart extends View {
             barWidth = barMinWidth;
             barSpace = barMinSpace;
         }
-        maxRight = (int) (xStartIndex + (barSpace + barWidth) * mBarData.size())+barSpace*2;
+        maxRight = (int) (xStartIndex + (barSpace + barWidth) * mBarData.size()) + barSpace * 2;
         minRight = screenWidth - barSpace - leftMargin;
     }
 
     /**
-     * 得到最大和最小的分度值
+     * 得到柱状图的最大和最小的分度值
      *
      * @param maxValueInItems
      * @param min
@@ -536,6 +694,53 @@ public class CombineChart extends View {
 
         return 10.0f;
     }
+
+    private float getRangeMin(float value) {
+        //value: [1,10)
+        if (value < 1.0) {
+            return 0f;
+        }
+
+        if (value < 1.5) {
+            return 1.0f;
+        }
+
+        if (value < 2.0) {
+            return 1.0f;
+        }
+
+        if (value < 3.0) {
+            return 2.0f;
+        }
+
+        if (value < 4.0) {
+            return 3.0f;
+        }
+
+        if (value < 5.0) {
+            return 4.0f;
+        }
+
+        if (value < 6.0) {
+            return 5.0f;
+        }
+
+        if (value < 8.0) {
+            return 7.0f;
+        }
+        if (value < 9.0) {
+            return 8.0f;
+        }
+
+        return 9.0f;
+    }
+
+    /**
+     * 获取这个最大数 数总共有几位
+     *
+     * @param value
+     * @return
+     */
     public static int getScale(float value) {
         if (value >= 1 && value < 10) {
             return 0;
@@ -547,22 +752,24 @@ public class CombineChart extends View {
             return getScale(value * 10) - 1;
         }
     }
+
     /**
-     *	根据点击的手势位置识别是第几个柱图被点击
+     * 根据点击的手势位置识别是第几个柱图被点击
+     *
      * @param x
      * @param y
      * @return -1时表示点击的是无效位置
      */
-    private int identifyWhichItemClick( float x, float y ){
+    private int identifyWhichItemClick(float x, float y) {
         float leftx = 0;
         float rightx = 0;
-        for( int i = 0; i < mBarData.size(); i++ ){
+        for (int i = 0; i < mBarData.size(); i++) {
             leftx = leftPoints.get(i);
             rightx = rightPoints.get(i);
-            if( x < leftx ){
+            if (x < leftx) {
                 break;
             }
-            if( leftx <= x && x <= rightx ){
+            if (leftx <= x && x <= rightx) {
                 return i;
             }
         }
@@ -570,9 +777,9 @@ public class CombineChart extends View {
     }
 
     /**
-     *	手势监听器
-     * @author A Shuai
+     * 手势监听器
      *
+     * @author A Shuai
      */
     private class RangeBarOnGestureListener implements GestureDetector.OnGestureListener {
 
@@ -582,12 +789,13 @@ public class CombineChart extends View {
         }
 
         @Override
-        public void onShowPress(MotionEvent e) {  }
+        public void onShowPress(MotionEvent e) {
+        }
 
         @Override
         public boolean onSingleTapUp(MotionEvent e) {
             int position = identifyWhichItemClick(e.getX(), e.getY());
-            if( position != INVALID_POSITION && mOnItemBarClickListener != null ){
+            if (position != INVALID_POSITION && mOnItemBarClickListener != null) {
                 mOnItemBarClickListener.onClick(position);
             }
             return true;
@@ -599,7 +807,8 @@ public class CombineChart extends View {
         }
 
         @Override
-        public void onLongPress(MotionEvent e) {  }
+        public void onLongPress(MotionEvent e) {
+        }
 
         @Override
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
