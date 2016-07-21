@@ -46,12 +46,12 @@ public class CombineChart extends View {
     /**
      * 各种巨型 柱形图的 左边白色部分 右边白色部分
      */
-    private Rect barRect, leftWhiteRect, rightWhiteRect;
+    private Rect barRect, leftWhiteRect, rightWhiteRect ,topWhiteRect ,bottomWhiteRect;
     private Rect barRect1, barRect2;
     /**
      * 左边和上边的边距
      */
-    private int leftMargin, topMargin, smallMargin;
+    private int leftMargin, topMargin;
     /**
      * 每一个bar的宽度
      */
@@ -146,7 +146,6 @@ public class CombineChart extends View {
 
         leftMargin = ScreenUtils.dp2px(context, 16);
         topMargin = ScreenUtils.dp2px(context, 20);
-        smallMargin = ScreenUtils.dp2px(context, 6);
 
         barPaint = new Paint();
         barPaint.setColor(colors[0]);
@@ -180,22 +179,31 @@ public class CombineChart extends View {
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         screenWidth = getMeasuredWidth();
         screenHeight = getMeasuredHeight();
-        //得到每个bar的宽度
-        if (mBarData != null) {
-            getItemsWidth(screenWidth, mBarData.size());
-            //设置矩形的顶部 底部 右边Y轴的3部分每部分的高度
-            getStatusHeight();
-            leftWhiteRect = new Rect(0, 0, 0, screenHeight);
-            rightWhiteRect = new Rect(screenWidth - leftMargin * 2 - 10, 0, screenWidth, screenHeight);
-        }
+
+        //设置矩形的顶部 底部 右边Y轴的3部分每部分的高度
+        getStatusHeight();
+        leftWhiteRect = new Rect(0, 0, 0, screenHeight);
+        rightWhiteRect = new Rect(screenWidth - leftMargin * 2 - 10, 0, screenWidth, screenHeight);
+        topWhiteRect = new Rect(0,0,screenWidth,topMargin/2);
+        bottomWhiteRect = new Rect(0, (int) yStartIndex,screenWidth,screenHeight);
         super.onSizeChanged(w, h, oldw, oldh);
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        setMeasuredDimension(getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec),
-                getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec));
-//        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+        int size = (int) ScreenUtils.dp2px(getContext(),50f);
+        setMeasuredDimension(
+                Math.max(getSuggestedMinimumWidth(),
+                        resolveSize(size,
+                                widthMeasureSpec)),
+                Math.max(getSuggestedMinimumHeight(),
+                        resolveSize(size,
+                                heightMeasureSpec)));
+        //得到每个bar的宽度
+        if (mBarData != null) {
+            getItemsWidth(screenWidth, mBarData.size());
+        }
     }
 
     @Override
@@ -214,6 +222,9 @@ public class CombineChart extends View {
         linePathT.incReserve(winds.size());
         checkTheLeftMoving();
         textPaint.setTextSize(ScreenUtils.dp2px(getContext(), 10));
+        barPaint.setColor(Color.WHITE);
+        canvas.drawRect(bottomWhiteRect, barPaint);
+        canvas.drawRect(topWhiteRect, barPaint);
         //画矩形
         drawBars(canvas);
         canvas.save();
@@ -230,7 +241,6 @@ public class CombineChart extends View {
         canvas.drawLine(xStartIndex, topMargin / 2, screenWidth - leftMargin, topMargin / 2, axisPaint);
         //画左边和右边的遮罩层
         int c = barPaint.getColor();
-        barPaint.setColor(BG_COLOR);
         leftWhiteRect.right = (int) xStartIndex;
 
         barPaint.setColor(Color.WHITE);
@@ -241,6 +251,19 @@ public class CombineChart extends View {
         //画左边的Y轴
         canvas.drawLine(xStartIndex, yStartIndex, xStartIndex, topMargin / 2, axisPaint);
         //画左边的Y轴text
+        drawLeftYAxis(canvas);
+
+        //左边Y轴的单位
+        canvas.drawText(leftAxisUnit, xStartIndex - textPaint.measureText(leftAxisUnit) - 5, topMargin/2, textPaint);
+
+        //画右边的Y轴
+        canvas.drawLine(screenWidth - leftMargin * 2 - 10, yStartIndex, screenWidth - leftMargin * 2 - 10, topMargin / 2, axisPaint);
+        //画右边Y轴text
+        drawRightYText(canvas);
+
+    }
+
+    private void drawLeftYAxis(Canvas canvas) {
         int maxYHeight = (int) (maxHeight / maxValueInItems * maxDivisionValue);
         for (int i = 1; i <= 10; i++) {
             float startY = barRect.bottom - maxYHeight * 0.1f * i;
@@ -251,15 +274,6 @@ public class CombineChart extends View {
             String text = String.valueOf(maxDivisionValue * 0.1f * i);
             canvas.drawText(text, xStartIndex - textPaint.measureText(text) - 5, startY + textPaint.measureText("0"), textPaint);
         }
-
-        //左边Y轴的单位
-        canvas.drawText(leftAxisUnit, xStartIndex - textPaint.measureText(leftAxisUnit) - 5, topMargin/2, textPaint);
-
-        //画右边的Y轴
-        canvas.drawLine(screenWidth - leftMargin * 2 - 10, yStartIndex, screenWidth - leftMargin * 2 - 10, topMargin / 2, axisPaint);
-        //画右边Y轴text
-        drawRightYText(canvas);
-
     }
 
     private void drawBars(Canvas canvas) {
@@ -582,16 +596,16 @@ public class CombineChart extends View {
             rightYLabels[3] = hMin + "%rh";
             rightYLabels[4] = hMin + (hMax - hMin) / 2 + "%rh";
             rightYLabels[5] = hMax + "%rh";
-            rightYLabels[6] = tMax + getResources().getString(R.string.degree_centigrade);
+            rightYLabels[6] = tMin + getResources().getString(R.string.degree_centigrade);
             rightYLabels[7] = tMin + (tMax - tMin) / 2 + getResources().getString(R.string.degree_centigrade);
-            rightYLabels[8] = tMin + getResources().getString(R.string.degree_centigrade);
+            rightYLabels[8] = tMax + getResources().getString(R.string.degree_centigrade);
         } else {
             rightYLabels[0] = hMin + "%rh";
             rightYLabels[1] = hMin + (hMax - hMin) / 2 + "%rh";
             rightYLabels[2] = hMax + "%rh";
-            rightYLabels[3] = tMax + getResources().getString(R.string.degree_centigrade);
+            rightYLabels[3] = tMin + getResources().getString(R.string.degree_centigrade);
             rightYLabels[4] = tMin + (tMax - tMin) / 2 + getResources().getString(R.string.degree_centigrade);
-            rightYLabels[5] = tMin + getResources().getString(R.string.degree_centigrade);
+            rightYLabels[5] = tMax + getResources().getString(R.string.degree_centigrade);
         }
     }
 
