@@ -44,6 +44,10 @@ public class CombineChart extends View {
      */
     private Paint barPaint, axisPaint, textPaint, linePaint, pointPaint;
     /**
+     * 原点的半径
+     */
+    private static final float RADIUS = 8;
+    /**
      * 各种巨型 柱形图的 左边白色部分 右边白色部分
      */
     private Rect barRect, leftWhiteRect, rightWhiteRect ,topWhiteRect ,bottomWhiteRect;
@@ -106,6 +110,22 @@ public class CombineChart extends View {
      * 右边的Y轴分成2份  每一分的高度
      */
     private float lineEachHeightT;
+    /**
+     * 温度的最大值减最小值
+     */
+    private float eachTotalValueT;
+    /**
+     * 温度的最小刻度值
+     */
+    private float mTMinValue;
+    /**
+     * 湿度的最小刻度值
+     */
+    private float mHMinValue;
+    /**
+     * 湿度的最大值减最小值
+     */
+    private float eachTotalValueH;
     //左边Y轴的单位
     private String leftAxisUnit = "";
     private OnItemBarClickListener mOnItemBarClickListener;
@@ -158,7 +178,7 @@ public class CombineChart extends View {
 
         linePaint = new Paint();
         linePaint.setAntiAlias(true);
-        linePaint.setStrokeWidth(4);
+        linePaint.setStrokeWidth(2);
         linePaint.setColor(Color.WHITE);
         linePaint.setStyle(Paint.Style.STROKE);
 
@@ -397,22 +417,22 @@ public class CombineChart extends View {
     private void drawCircles(Canvas canvas) {
         for (int i = 0; i < mBarData.size(); i++) {
             if (rightYLabels.length == 9) {
-                float lineHeight = winds.get(i) * lineEachHeight / 10;
+                float lineHeight = winds.get(i) * lineEachHeight / 10f;
                 pointPaint.setColor(WIND_COLOR);
-                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight, 10, pointPaint);
-                float lineHeight2 = humidity.get(i) * lineEachHeight / 100;
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight, RADIUS, pointPaint);
+                float lineHeight2 = (humidity.get(i)-mHMinValue) * lineEachHeight / eachTotalValueH;
                 pointPaint.setColor(HUM_COLOR);
-                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight2 - lineEachHeight, 10, pointPaint);
-                float lineHeight3 = (temperature.get(i) + 50) * lineEachHeight / 100;
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight2 - lineEachHeight, RADIUS, pointPaint);
+                float lineHeight3 = Math.abs(temperature.get(i) - mTMinValue) * lineEachHeight / eachTotalValueT;
                 pointPaint.setColor(TEM_COLOR);
-                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeight * 2, 10, pointPaint);
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeight * 2, RADIUS, pointPaint);
             } else {
-                float lineHeight = humidity.get(i) * lineEachHeightT / 100;
+                float lineHeight = (humidity.get(i)-mHMinValue) * lineEachHeightT / eachTotalValueH;
                 pointPaint.setColor(HUM_COLOR);
-                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight, 10, pointPaint);
-                float lineHeight1 = (temperature.get(i) + 50) * lineEachHeightT / 100;
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight, RADIUS, pointPaint);
+                float lineHeight1 = Math.abs(temperature.get(i) - mTMinValue) * lineEachHeightT / eachTotalValueT;
                 pointPaint.setColor(TEM_COLOR);
-                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight1 - lineEachHeightT, 10, pointPaint);
+                canvas.drawCircle(leftPoints.get(i) + barWidth / 2, barRect.bottom - lineHeight1 - lineEachHeightT, RADIUS, pointPaint);
             }
         }
     }
@@ -424,35 +444,35 @@ public class CombineChart extends View {
      */
     private void drawLines(int i) {
         if (rightYLabels.length == 9) {
-            float lineHeight = winds.get(i) * lineEachHeight / 10;
+            float lineHeight = winds.get(i) * lineEachHeight / 10f;
             if (i == 0) {
                 linePathW.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight);
             } else {
                 linePathW.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight);
             }
 
-            float lineHeight2 = humidity.get(i) * lineEachHeight / 100;
+            float lineHeight2 = (humidity.get(i)-mHMinValue) * lineEachHeight / eachTotalValueH;
             if (i == 0) {
                 linePathH.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2 - lineEachHeight);
             } else {
                 linePathH.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2 - lineEachHeight);
             }
 
-            float lineHeight3 = (temperature.get(i) + 50) * lineEachHeight / 100;
+            float lineHeight3 = Math.abs(temperature.get(i) - mTMinValue) * lineEachHeight / eachTotalValueT;
             if (i == 0) {
                 linePathT.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeight * 2);
             } else {
                 linePathT.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeight * 2);
             }
         } else {
-            float lineHeight2 = humidity.get(i) * lineEachHeightT / 100;
+            float lineHeight2 = (humidity.get(i)-mHMinValue) * lineEachHeightT / eachTotalValueH;
             if (i == 0) {
                 linePathH.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2);
             } else {
                 linePathH.lineTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight2);
             }
 
-            float lineHeight3 = (temperature.get(i) + 50) * lineEachHeightT / 100;
+            float lineHeight3 = Math.abs(temperature.get(i) - mTMinValue) * lineEachHeightT / eachTotalValueT;
             if (i == 0) {
                 linePathT.moveTo(barRect.left + barWidth / 2, barRect.bottom - lineHeight3 - lineEachHeightT);
             } else {
@@ -515,6 +535,7 @@ public class CombineChart extends View {
 
     public void setRightYLabels(String[] rightYLabels) {
         this.rightYLabels = rightYLabels;
+        changeRightYLabels();
         invalidate();
     }
 
@@ -607,6 +628,10 @@ public class CombineChart extends View {
             rightYLabels[4] = tMin + (tMax - tMin) / 2 + getResources().getString(R.string.degree_centigrade);
             rightYLabels[5] = tMax + getResources().getString(R.string.degree_centigrade);
         }
+        eachTotalValueH = hMax - hMin;
+        eachTotalValueT = tMax - tMin;
+        mHMinValue = hMin;
+        mTMinValue = tMin;
     }
 
     /**
