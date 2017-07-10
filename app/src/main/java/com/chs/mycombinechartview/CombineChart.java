@@ -726,6 +726,9 @@ public class CombineChart extends View {
         if (value < 6.0) {
             return 6.0f;
         }
+        if (value < 7.0) {
+            return 7.0f;
+        }
 
         if (value < 8.0) {
             return 8.0f;
@@ -762,6 +765,9 @@ public class CombineChart extends View {
 
         if (value < 6.0) {
             return 5.0f;
+        }
+        if (value < 7.0) {
+            return 6.0f;
         }
 
         if (value < 8.0) {
